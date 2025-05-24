@@ -37,7 +37,7 @@ local function get_header_items(file_path)
 		),
 	}
 
-	local ports = get_query(stext, "(ansi_port_declaration (simple_identifier) @port_name)")
+	local ports = get_query(stext, "[(ansi_port_declaration (simple_identifier) @ansi_name) (port (simple_identifier) @nonansi_name)]")
 
 	if not name or not params or not ports then
 		vim.notify("Failed to get query")
