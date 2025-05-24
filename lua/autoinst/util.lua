@@ -15,7 +15,7 @@ function M.get_root()
 	---@type string[]
 	local roots = {}
 	if path then
-		for _, client in pairs(vim.lsp.get_active_clients({ bufnr = 0 })) do
+		for _, client in pairs(vim.lsp.get_clients({ bufnr = 0 })) do
 			local workspace = client.config.workspace_folders
 			local paths = workspace
 					and vim.tbl_map(function(ws)
@@ -24,9 +24,11 @@ function M.get_root()
 				or client.config.root_dir and { client.config.root_dir }
 				or {}
 			for _, p in ipairs(paths) do
-				local r = vim.loop.fs_realpath(p)
-				if path:find(r, 1, true) then
-					roots[#roots + 1] = r
+				if p ~= "" then
+					local r = vim.loop.fs_realpath(p)
+					if path:find(r, 1, true) then
+						roots[#roots + 1] = r
+					end
 				end
 			end
 		end
