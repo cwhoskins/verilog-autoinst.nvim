@@ -2,6 +2,13 @@ local M = {}
 
 M.root_patterns = { ".git", "lua" }
 
+local pickers = require "telescope.pickers"
+local finders = require "telescope.finders"
+local conf = require("telescope.config").values
+local entry_display = require "telescope.pickers.entry_display"
+local actions = require "telescope.actions"
+local action_state = require "telescope.actions.state"
+
 -- returns the root directory based on:
 -- * lsp workspace folders
 -- * lsp root_dir
@@ -15,7 +22,7 @@ function M.get_root()
 	---@type string[]
 	local roots = {}
 	if path then
-		for _, client in pairs(vim.lsp.get_active_clients({ bufnr = 0 })) do
+		for _, client in pairs(vim.lsp.get_clients({ bufnr = 0 })) do
 			local workspace = client.config.workspace_folders
 			local paths = workspace
 					and vim.tbl_map(function(ws)
@@ -24,9 +31,11 @@ function M.get_root()
 				or client.config.root_dir and { client.config.root_dir }
 				or {}
 			for _, p in ipairs(paths) do
-				local r = vim.loop.fs_realpath(p)
-				if path:find(r, 1, true) then
-					roots[#roots + 1] = r
+				if p ~= "" then
+					local r = vim.loop.fs_realpath(p)
+					if path:find(r, 1, true) then
+						roots[#roots + 1] = r
+					end
 				end
 			end
 		end
@@ -50,6 +59,14 @@ function M.is_not_root_pattern(path)
 	return string.match(path, "^/") or string.match(path, "^[A-Za-z]:\\")
 end
 
+function M.file_search(file_name)
+	local handle = io.popen("find ~+ -type f -name \"" .. file_name .. ".*v\"")
+	local result = handle:read("*a")
+	handle:close()
+	result = string.sub(result,1,#result-1)
+	return result
+end
+
 function M.telescope(fn_inst)
 	local builtin = "find_files"
 	local root = M.get_root()
@@ -68,6 +85,42 @@ function M.telescope(fn_inst)
 		end,
 	}
 	require("telescope.builtin")[builtin](opts)
+end
+
+function M.telescope_ports(t,cb, opts)
+  	opts = opts or {}
+	result = {}
+  	pickers.new(opts, {
+  	  	prompt_title = "Ports",
+  	  	finder = finders.new_table {
+  	  		results = t,
+			entry_maker = function(entry)
+				return {
+					value = entry,
+					display = entry.module_name .. " | " .. entry.instance_name .. " | " .. entry.port_name,
+					-- display = entry_display.create {
+    	-- 					separator = " ",
+    	-- 					items = {
+     --  							{ width = 8 },
+     --  							{ remaining = true },
+    	-- 					},
+  			-- 		},
+					ordinal = entry.module_name .. " | " .. entry.instance_name .. " | " .. entry.port_name,
+				}
+			end,
+  	  	},
+  	  	sorter = conf.generic_sorter(opts),
+		attach_mappings = function(prompt_bufnr, map)
+      			actions.select_default:replace(function()
+        			actions.close(prompt_bufnr)
+        			result = action_state.get_selected_entry()
+        			-- vim.api.nvim_put({ selection[1] }, "", false, true)
+				cb(result)
+      			end)
+      			return true
+    		end,
+  	}):find()
+        print(vim.inspect(result))
 end
 
 ---@param params string[]
